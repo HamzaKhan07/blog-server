@@ -14,7 +14,7 @@ const secretKey="afjasdklfj23987sdf";
 
 
 app = express();
-app.use(cors({credentials: true, methods: ["POST", "GET", "PUT", "DELETE"], origin: 'https://blogify-kohl-gamma.vercel.app'}));
+app.use(cors({credentials: true, methods: ["POST", "GET", "PUT", "DELETE"], origin: ['https://blogify-kohl-gamma.vercel.app']}));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname+'/uploads'));
