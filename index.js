@@ -10,10 +10,6 @@ const fs = require('fs');
 const multer  = require('multer')
 const upload = multer({ dest: 'uploads/' })
 
-
-const bcrypt = require('bcrypt');
-const saltRounds = 5;
-const salt = bcrypt.genSaltSync(saltRounds);
 const secretKey="afjasdklfj23987sdf";
 
 
@@ -42,11 +38,9 @@ app.get('/', function(req, res){
 //register
 app.post('/register', async function(req, res){
     const {username, password} = req.body;
-    const hash = bcrypt.hashSync(password, salt);
-    console.log(hash);
     //register
     try{
-        const userDoc = await User.create({username: username, password: hash});
+        const userDoc = await User.create({username: username, password: password});
         res.json(userDoc);
     }
     catch(e){
@@ -69,7 +63,7 @@ app.post('/login', async function(req, res){
     }
 
     //check password
-    const isValid = bcrypt.compareSync(password, userDoc.password); // true
+    const isValid = password === userDoc.password // true
     if(isValid){
         //logged in
         jwt.sign({username: userDoc.username, id: userDoc._id}, secretKey, {}, (err, token)=>{
