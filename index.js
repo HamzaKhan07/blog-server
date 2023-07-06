@@ -3,7 +3,6 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const User = require('./models/user');
 const Post = require('./models/post');
-const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
 
@@ -20,15 +19,6 @@ app.use(cookieParser());
 app.use('/uploads', express.static(__dirname+'/uploads'));
 
 mongoose.connect('mongodb+srv://hamzakhan48208:bXAbjJKrmQ4Wc0l4@cluster0.urcj6v8.mongodb.net/?retryWrites=true&w=majority');
-
-// for cors
-// app.use(function(req, res, next) {
-//     res.header("Access-Control-Allow-Origin", '*');
-//     res.header("Access-Control-Allow-Credentials", true);
-//     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-//     res.header("Access-Control-Allow-Headers", 'Origin,X-Requested-With,Content-Type,Accept,content-type,application/json');
-//     next();
-// });
 
 
 app.get('/', function(req, res){
@@ -66,11 +56,7 @@ app.post('/login', async function(req, res){
     const isValid = password === userDoc.password // true
     if(isValid){
         //logged in
-        jwt.sign({username: userDoc.username, id: userDoc._id}, secretKey, {}, (err, token)=>{
-            if(err) throw err;
-            //send cookie
-            res.cookie('token', token).json('ok');
-        });
+       res.json(userDoc);
     }
     else{
         res.status(400).json("Invalid Credentials!");
@@ -79,21 +65,6 @@ app.post('/login', async function(req, res){
     //session
 });
 
-//for validating logged in user, cookes
-app.get('/profile', function(req, res){
-    const {token} = req.cookies;
-    //verify 
-    jwt.verify(token, secretKey, {}, (err, info)=>{
-        if(err) throw err;
-        return res.json(info);
-    });
-});
-
-//logout
-app.post('/logout', function(req, res){
-    //invalidate cookie
-    res.cookie('token', '').json('ok');
-});
 
 //save post
 app.post('/post',upload.single('file'), async function(req, res){
@@ -104,23 +75,18 @@ app.post('/post',upload.single('file'), async function(req, res){
     const newPath=path+"."+ext
     fs.renameSync(path, newPath);
 
-    const {token} = req.cookies;
-    //verify 
-    jwt.verify(token, secretKey, {}, async (err, info)=>{
-        if(err) throw err;
-
-        const {title, summary, content, category} = req.body;
-        const postDoc=await Post.create({
-            title: title,
-            summary: summary,
-            content: content,
-            category: category,
-            cover: newPath,
-            author: info.id,
-        });
-
-        res.json(postDoc);
+    //store data
+    const {userId, title, summary, content, category} = req.body;
+    const postDoc=await Post.create({
+        title: title,
+        summary: summary,
+        content: content,
+        category: category,
+        cover: newPath,
+        author: new mongoose.Types.ObjectId(userId),
     });
+
+    res.json(postDoc);
 
 });
 
@@ -136,32 +102,20 @@ app.put('/post',upload.single('file'), async function(req, res){
         fs.renameSync(path, newPath);
     }
     
+    //update
+    //grab information
+    const {userId, id, title, summary, content, category} = req.body;
+    const postDoc = await Post.findById(id);
 
-    const {token} = req.cookies;
-    //verify 
-    jwt.verify(token, secretKey, {}, async (err, info)=>{
-        if(err) throw err;
+    postDoc.title=title;
+    postDoc.summary=summary;
+    postDoc.content=content;
+    postDoc.category=category;
+    postDoc.cover= newPath ? newPath : postDoc.cover;
 
-        //grab information
-        const {id, title, summary, content, category} = req.body;
-        const postDoc = await Post.findById(id);
-
-        //check if author
-        const isAuthor = JSON.stringify(postDoc.author) === JSON.stringify(info.id);
-        if(!isAuthor){
-            return res.status(400).json("You are not the Author!");
-        }
-
-        postDoc.title=title;
-        postDoc.summary=summary;
-        postDoc.content=content;
-        postDoc.category=category;
-        postDoc.cover= newPath ? newPath : postDoc.cover;
-
-        await postDoc.save();
-        
-        res.json({postDoc});
-    });
+    await postDoc.save();
+    
+    res.json({postDoc});
 
 });
 
@@ -194,28 +148,6 @@ app.get('/posts/:id', async function(req, res){
     res.json(postDoc);
 });
 
-//get logged in user id
-app.get('/getUserId', function(req, res){
-    const token = req.cookies;
-    if(token.token===''){
-        res.json("");
-    }
-    const parsed=JSON.parse(Buffer.from(token.token.toString().split('.')[1], 'base64').toString());
-
-    res.json(parsed);
-});
-
-//get logged in user name
-app.get('/getUserName', function(req, res){
-    const token = req.cookies;
-    if(token.token===''){
-        res.json("");
-    }
-    const parsed=JSON.parse(Buffer.from(token.token.toString().split('.')[1], 'base64').toString());
-
-    res.json(parsed);
-});
-
 //add comments
 app.post('/comments/:id', async function(req, res){
     const {id}=req.params;
@@ -224,7 +156,7 @@ app.post('/comments/:id', async function(req, res){
     //prepare comment
     const commentDoc = {
         content: comment,
-        author: userId,
+        author: new mongoose.Types.ObjectId(userId),
     };
 
     //get post 
