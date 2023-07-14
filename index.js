@@ -67,22 +67,15 @@ app.post('/login', async function(req, res){
 
 
 //save post
-app.post('/post',upload.single('file'), async function(req, res){
-    const {originalname, path} = req.file;
-    const ext = originalname.split('.')[1];
-    
-    //rename
-    const newPath=path+"."+ext
-    fs.renameSync(path, newPath);
-
+app.post('/post', async function(req, res){
     //store data
-    const {userId, title, summary, content, category} = req.body;
+    const {userId, title, summary, content, category, imageUrl} = req.body;
     const postDoc=await Post.create({
         title: title,
         summary: summary,
         content: content,
         category: category,
-        cover: newPath,
+        cover: imageUrl,
         author: new mongoose.Types.ObjectId(userId),
     });
 
@@ -91,27 +84,18 @@ app.post('/post',upload.single('file'), async function(req, res){
 });
 
 //update post
-app.put('/post',upload.single('file'), async function(req, res){
-    const newPath=null;
-    if(req.file){
-        const {originalname, path} = req.file;
-        const ext = originalname.split('.')[1];
-    
-        //rename
-        newPath=path+"."+ext
-        fs.renameSync(path, newPath);
-    }
-    
+app.put('/post', async function(req, res){
+   
     //update
     //grab information
-    const {userId, id, title, summary, content, category} = req.body;
+    const {userId, id, title, summary, content, category, imageUrl} = req.body;
     const postDoc = await Post.findById(id);
 
     postDoc.title=title;
     postDoc.summary=summary;
     postDoc.content=content;
     postDoc.category=category;
-    postDoc.cover= newPath ? newPath : postDoc.cover;
+    postDoc.cover= imageUrl==='' ? postDoc.cover : imageUrl;
 
     await postDoc.save();
     
